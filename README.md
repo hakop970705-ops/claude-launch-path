@@ -6,6 +6,13 @@
 
 > Интерфейс панели на русском. / The panel UI is in Russian (English README below).
 
+<p align="center">
+  <img src="docs/panel.png" width="260" alt="Панель: проценты, «Сейчас», горит / ждёт / решение, все этапы">
+  <img src="docs/roadmap.png" width="260" alt="Окно «Роадмап»: этапы с процентами и фильтром запусков">
+  <img src="docs/collapsed.png" width="260" alt="Свёрнутая карточка">
+</p>
+<p align="center"><sub>Панель · Окно «Роадмап» · Свёрнутая карточка — на примере из <code>examples/ЭТАПЫ.md</code> / Panel · Roadmap window · Collapsed card</sub></p>
+
 ---
 
 ## 🇷🇺 По-русски
