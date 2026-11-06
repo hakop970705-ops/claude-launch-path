@@ -43,6 +43,7 @@ declare module 'claude-code' {
       roadFilter: Shaped<string>
       isMini: boolean
       isStageOpen: boolean
+      isGoalOpen: boolean
       isAllOpen: boolean
     }
   }

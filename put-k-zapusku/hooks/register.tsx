@@ -38,6 +38,7 @@ const roadFilter = atom({ plugin: 'put-k-zapusku', key: 'roadFilter' } as const,
 const isMini = atom({ plugin: 'put-k-zapusku', key: 'isMini' } as const, false)
 const isStageOpen = atom({ plugin: 'put-k-zapusku', key: 'isStageOpen' } as const, false)
 const isAllOpen = atom({ plugin: 'put-k-zapusku', key: 'isAllOpen' } as const, false)
+const isGoalOpen = atom({ plugin: 'put-k-zapusku', key: 'isGoalOpen' } as const, false)
 
 const BLUE = '#378ADD'
 const GRAY = '#888780'
@@ -297,6 +298,7 @@ export const register: Register = on => {
     const mini = await read($, isMini)
     const stageOpen = await read($, isStageOpen)
     const allOpen = await read($, isAllOpen)
+    const goalOpen = await read($, isGoalOpen)
 
     if (!data || data.status !== 'ok') {
       return (
@@ -327,15 +329,47 @@ export const register: Register = on => {
       await $.ui.open({ id: ROAD, title: 'Роадмап' })
     }
 
+    // Этап, к которому относится цель сеанса: его шаги показываются по кнопке ˅, как у «Сейчас».
+    const goalStage = g ? plan.stages.find(st => st.num === g.stage) ?? null : null
+    const GoalSteps = () =>
+      goalStage ? (
+        <Box flexDirection="column" gap="sm">
+          <Text size="caption" dimColor>
+            Этап {goalStage.num} · {goalStage.title} · {goalStage.steps.filter(s => s.isDone).length} из {goalStage.steps.length}
+          </Text>
+          <Text size="caption" dimColor>Осталось · {goalStage.steps.filter(isLeft).length}</Text>
+          {goalStage.steps.map((s, i) => (isLeft(s) ? StepRow($, els, plan, me, goalStage, s, i, 'g') : null))}
+          {goalStage.steps.some(s => !s.isDone && s.tag === 'потом') ? (
+            <Text size="caption" dimColor>Отложено · {goalStage.steps.filter(s => !s.isDone && s.tag === 'потом').length}</Text>
+          ) : null}
+          {goalStage.steps.map((s, i) => (!s.isDone && s.tag === 'потом' ? StepRow($, els, plan, me, goalStage, s, i, 'g') : null))}
+          <Text size="caption" dimColor>Сделано · {goalStage.steps.filter(s => s.isDone).length}</Text>
+          {goalStage.steps
+            .filter(s => s.isDone)
+            .map((s, i) => (
+              <Text key={`gd-${i}`} size="footnote" dimColor>✓ {s.text}</Text>
+            ))}
+        </Box>
+      ) : (
+        <Text size="footnote" dimColor>Этап {g?.stage} не найден в {FILE}: шаги цели ведёт сеанс.</Text>
+      )
     const GoalBlock = ({ compact }: { compact: boolean }) =>
       g ? (
         <Box flexDirection="column" gap="xs">
-          <Text size="caption" color="suggestion">
-            {compact ? `Сеанс · ${g.done} из ${g.total || '?'}` : `В работе · ${g.done} из ${g.total || '?'}`}
-          </Text>
+          {compact ? (
+            <Text size="caption" color="suggestion">Сеанс · {g.done} из {g.total || '?'}</Text>
+          ) : (
+            <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+              <Text size="caption" color="suggestion">В работе · {g.done} из {g.total || '?'}</Text>
+              <Button key="goal" plain onPress={() => update($, isGoalOpen, v => !v)}>
+                <Text size="footnote" dimColor>{goalOpen ? 'скрыть шаги ˄' : 'шаги ˅'}</Text>
+              </Button>
+            </Box>
+          )}
           <Text weight="medium">{g.title}</Text>
           <Bar pct={g.total ? Math.round((g.done / g.total) * 100) : 0} color={BLUE} thick={3} />
           {g.next ? <Text size="footnote" dimColor>Дальше: {g.next}</Text> : null}
+          {!compact && goalOpen ? <GoalSteps /> : null}
         </Box>
       ) : (
         <Text size="footnote" dimColor>Сеанс: нажми «Делаем» у пункта</Text>

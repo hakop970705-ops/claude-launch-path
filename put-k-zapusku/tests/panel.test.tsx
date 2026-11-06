@@ -155,6 +155,21 @@ test('«Делаем» ставит цель сеанса, метку сеанс
   await ui.unmount()
 })
 
+test('«В работе» раскрывается кнопкой и показывает шаги этапа цели, повторное нажатие скрывает', async ($, on) => {
+  const box = newBox()
+  await start($, on, box)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'do-3-0' })
+  expect(await ui.find({ type: 'Text', text: 'Отложенный шаг' })).toBeFalsy()
+  await ui.press({ key: 'goal' })
+  expect(await ui.find({ type: 'Text', text: /Этап 3 · Агенты · 1 из 7/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: 'Отложенный шаг' })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: '✓ сделанный шаг' })).toBeTruthy()
+  await ui.press({ key: 'goal' })
+  expect(await ui.find({ type: 'Text', text: 'Отложенный шаг' })).toBeFalsy()
+  await ui.unmount()
+})
+
 test('«Обновить роадмап» просит Клода запустить станок из шапки и переиздать страницы', async ($, on) => {
   const box = newBox()
   await start($, on, box)

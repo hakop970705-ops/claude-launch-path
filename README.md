@@ -92,6 +92,6 @@ Header keys: `проект` (project), `запуск_1` / `запуск_2` (laun
 ---
 
 ## Разработка · Development
-Мод — это [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/plugins) на TypeScript/JSX: `put-k-zapusku/hooks/register.tsx` (панели), `parse.ts` (разбор файла), `tests/panel.test.tsx` (18 тестов). Проверка: `claude plugin validate put-k-zapusku` и `claude plugin test put-k-zapusku`.
+Мод — это [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/plugins) на TypeScript/JSX: `put-k-zapusku/hooks/register.tsx` (панели), `parse.ts` (разбор файла), `tests/panel.test.tsx` (19 тестов). Проверка: `claude plugin validate put-k-zapusku` и `claude plugin test put-k-zapusku`.
 
 Лицензия / License: [MIT](LICENSE). Автор / Author: [Akop Arsenyan](https://github.com/hakop970705-ops).
