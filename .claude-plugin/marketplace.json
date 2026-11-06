@@ -1,0 +1,12 @@
+{
+  "name": "claude-launch-path",
+  "owner": { "name": "Akop Arsenyan", "url": "https://github.com/hakop970705-ops" },
+  "metadata": { "description": "Launch Path: a side panel for Claude Code that keeps your project on track (stages, progress, today's plan)." },
+  "plugins": [
+    {
+      "name": "put-k-zapusku",
+      "source": "./put-k-zapusku",
+      "description": "Панель «Путь к запуску» / Launch Path panel: stages from ЭТАПЫ.md, progress by checkboxes, «Today», hot items, session goals, lock for parallel sessions."
+    }
+  ]
+}

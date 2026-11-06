@@ -1,0 +1,12 @@
+{
+  "name": "put-k-zapusku",
+  "version": "1.1.0",
+  "description": "Панель «Путь к запуску»: этапы проекта из ЭТАПЫ.md, проценты по галочкам, горящее и цель сеанса.",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Akop Arsenyan",
+    "url": "https://github.com/hakop970705-ops"
+  },
+  "homepage": "https://github.com/hakop970705-ops/claude-launch-path",
+  "license": "MIT"
+}
