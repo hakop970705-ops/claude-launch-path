@@ -64,7 +64,7 @@ const ROAD = pane('put-k-zapusku-roadmap')
 
 const pathOf = (e: any) => String(e?.path ?? e?.[0] ?? e)
 
-type Box = { file: string | null; submitted: string[]; toasts: string[]; opened: string[] }
+type Box = { file: string | null; submitted: string[]; toasts: string[]; opened: string[]; up: boolean }
 
 // Движок под модом: файл в памяти, сеанс с номером, часы на 6 ноября.
 function engine(on: any, box: Box, sessionId = 'aaaa1111-xxxx') {
@@ -72,8 +72,13 @@ function engine(on: any, box: Box, sessionId = 'aaaa1111-xxxx') {
   on('tool.register', () => ({ value: { tool: 'mcp__put-k-zapusku__session_goal' } }))
   on('ui.open', (_: any, e: any) => {
     box.opened.push(String(e?.id))
-    return { value: { isPlaced: true } }
+    return { value: { isPlaced: box.up } }
   })
+  on('ui.panes', () => ({
+    value: box.opened.includes('put-k-zapusku')
+      ? [{ id: 'put-k-zapusku', title: 'x', isShown: box.up, isFocused: false, isPlaced: box.up }]
+      : [],
+  }))
   on('ui.toast', (_: any, e: any) => {
     box.toasts.push(String(e?.text ?? e))
     return { value: undefined }
@@ -94,7 +99,7 @@ function engine(on: any, box: Box, sessionId = 'aaaa1111-xxxx') {
     return { text: String(e.text) }
   })
 }
-const newBox = (file: string | null = SAMPLE): Box => ({ file, submitted: [], toasts: [], opened: [] })
+const newBox = (file: string | null = SAMPLE): Box => ({ file, submitted: [], toasts: [], opened: [], up: true })
 
 async function start($: any, on: any, box: Box, surface: any = 'desktop', id?: string) {
   engine(on, box, id)
@@ -317,4 +322,35 @@ test('короткая ссылка на страницу превращаетс
     'https://claude.ai/code/artifact/11111111-2222-4333-8444-555555555555',
   )
   expect(appLink('https://example.com/x')).toBe('https://example.com/x')
+})
+
+const BAND = { plugin: 'put-k-zapusku', component: 'AbovePrompt', props: { hasSurvey: false } } as const
+
+const bandTest = (surface: 'terminal' | 'desktop') =>
+  test(`кнопка над полем ввода (${surface}): видна, пока панели нет; нажатие открывает панель`, async ($, on) => {
+    const box = newBox()
+    box.up = false
+    await start($, on, box, surface)
+    const ui = await $.ui.mount({ ...BAND, surface } as any)
+    expect(await ui.find({ key: 'open-pane' } as any)).toBeTruthy()
+    box.up = true
+    const before = box.opened.length
+    await ui.press({ key: 'open-pane' })
+    expect(box.opened.length).toBe(before + 1)
+    await ui.unmount()
+  })
+bandTest('terminal')
+bandTest('desktop')
+
+test('кнопки нет, когда панель на экране', async ($, on) => {
+  const box = newBox()
+  on('ui.render', { component: 'AbovePrompt' }, ($: any, e: any) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>под модом</Text>
+  })
+  await start($, on, box)
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' } as any)
+  expect(await ui.find({ key: 'open-pane' } as any)).toBeFalsy()
+  expect(await ui.find({ type: 'Text', text: 'под модом' })).toBeTruthy()
+  await ui.unmount()
 })

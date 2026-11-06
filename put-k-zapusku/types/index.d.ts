@@ -45,6 +45,7 @@ declare module 'claude-code' {
       isStageOpen: boolean
       isGoalOpen: boolean
       isAllOpen: boolean
+      paneTick: number
     }
   }
 }

@@ -39,6 +39,8 @@ const isMini = atom({ plugin: 'put-k-zapusku', key: 'isMini' } as const, false)
 const isStageOpen = atom({ plugin: 'put-k-zapusku', key: 'isStageOpen' } as const, false)
 const isAllOpen = atom({ plugin: 'put-k-zapusku', key: 'isAllOpen' } as const, false)
 const isGoalOpen = atom({ plugin: 'put-k-zapusku', key: 'isGoalOpen' } as const, false)
+// Счётчик: растёт при каждом открытии/закрытии панели, чтобы полоска с кнопкой перерисовалась.
+const paneTick = atom({ plugin: 'put-k-zapusku', key: 'paneTick' } as const, 0)
 
 const BLUE = '#378ADD'
 const GRAY = '#888780'
@@ -88,6 +90,18 @@ async function mutate($: any, fn: (src: string) => string | null): Promise<boole
   if (out !== null && out !== src) await $.fs.write(d.path, out)
   await reload($)
   return out !== null
+}
+
+const openPane = async ($: any) => {
+  const opened = await $.ui.open({ id: PANE, title: TITLE })
+  await update($, paneTick, (n: number) => n + 1)
+  return opened
+}
+
+// Панель видна? (открыта и нарисована приложением)
+const paneUp = async ($: any) => {
+  const panes = (await $.ui.panes()) as readonly { id: string; isPlaced: boolean }[]
+  return panes.some(p => p.id === PANE && p.isPlaced)
 }
 
 const today = async ($: any) => localDate(await $.clock.now())
@@ -246,8 +260,35 @@ export const register: Register = on => {
     await reload($)
     // Сама панель открывается только в проекте, где есть ЭТАПЫ.md; в остальных — по команде /zapusk.
     const found = await read($, loaded)
-    if (found && found.status === 'ok') void $.ui.open({ id: PANE, title: TITLE })
+    if (found && found.status === 'ok') void openPane($).catch(() => {})
     return ran
+  })
+
+  // Приложение подключилось позже старта сеанса — вторая попытка показать панель.
+  on('session.attach', async ($, e, next) => {
+    const ran = await next(e)
+    const found = await read($, loaded)
+    if (found && found.status === 'ok' && !(await paneUp($))) void openPane($).catch(() => {})
+    return ran
+  })
+
+  on('ui.close', async ($, e, next) => {
+    const ran = await next(e)
+    await update($, paneTick, n => n + 1)
+    return ran
+  })
+
+  // Полоска над полем ввода: кнопка «открыть», пока панели не видно.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    await read($, paneTick)
+    const found = await read($, loaded)
+    if (e.props.hasSurvey || !found || found.status !== 'ok' || (await paneUp($))) return next(e)
+    const { Box, Button } = $.ui.resolve(e)
+    return (
+      <Box>
+        <Button key="open-pane" label="📍 Путь к запуску — открыть" onPress={() => openPane($)} />
+      </Box>
+    )
   })
 
   // Сеанс закрылся — его задачи свободны для других сеансов.
@@ -260,7 +301,7 @@ export const register: Register = on => {
 
   on('command.run', { command: 'zapusk' }, async $ => {
     await reload($)
-    await $.ui.open({ id: PANE, title: TITLE })
+    await openPane($)
     return { text: 'Панель «Путь к запуску» открыта.' }
   })
 
