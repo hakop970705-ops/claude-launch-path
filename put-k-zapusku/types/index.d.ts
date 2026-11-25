@@ -13,10 +13,14 @@ export type Step = {
 
 export type Stage = { num: number; title: string; launch: string; steps: Step[] }
 
+export type Launch = { n: number; name: string }
+
 export type Plan = {
   project: string
   launch1: string
   launch2: string
+  /** Все запуски файла по номеру: из шапки `запуск_N` и из меток этапов «запуск N». Один запуск — список из одного. */
+  launches: Launch[]
   roadmap: string
   roadmap1: string
   refresh: string

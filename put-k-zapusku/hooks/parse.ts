@@ -1,4 +1,4 @@
-import type { Plan, Stage, Step, Tag, Zone } from '../types'
+import type { Launch, Plan, Stage, Step, Tag, Zone } from '../types'
 
 const TAGS: Tag[] = ['горит', 'ждёт', 'решение', 'клод', 'потом']
 const STAGE_RE = /^##\s+(\d+)\s*·\s*(.+?)(?:\s*·\s*([^·]+))?\s*$/
@@ -46,6 +46,7 @@ export function parsePlan(text: string): Plan {
     .map(Number)
     .filter(n => Number.isInteger(n) && n > 0)
   return {
+    launches: collectLaunches(meta, stages),
     project: meta['проект'] ?? '',
     launch1: meta['запуск_1'] ?? '',
     launch2: meta['запуск_2'] ?? '',
@@ -57,6 +58,32 @@ export function parsePlan(text: string): Plan {
     today: meta['сегодня'] ?? '',
     stages,
   }
+}
+
+// Запуски файла: номера из шапки (запуск_N) и из меток этапов; имя — из шапки. Сколько в файле, столько и запусков.
+function collectLaunches(meta: Record<string, string>, stages: Stage[]): Launch[] {
+  const nums = new Set<number>()
+  for (const k of Object.keys(meta)) {
+    const m = k.match(/^запуск_(\d+)$/)
+    if (m) nums.add(Number(m[1]))
+  }
+  for (const s of stages) {
+    const m = s.launch.match(/запуск\s*(\d+)/i)
+    if (m) nums.add(Number(m[1]))
+  }
+  return [...nums].sort((a, b) => a - b).map(n => ({ n, name: meta[`запуск_${n}`] ?? '' }))
+}
+
+const isLaunch = (s: Stage, n: number) => new RegExp(`запуск\\s*${n}(?!\\d)`, 'i').test(s.launch)
+
+// Запуски, в которых есть шаги; текущий — первый недоделанный (все готовы — последний).
+export function launchView(plan: Plan): { list: Launch[]; cur: Launch | null } {
+  const list = plan.launches.filter(l => plan.stages.some(s => isLaunch(s, l.n) && s.steps.length))
+  const cur = list.find(l => {
+    const s = sumSteps(launchStages(plan, l.n))
+    return s.done < s.total
+  }) ?? list[list.length - 1] ?? null
+  return { list, cur }
 }
 
 function parseStep(mark: string, raw: string): Step {
@@ -108,8 +135,7 @@ export function currentStage(plan: Plan): Stage | null {
   return ordered(plan).find(s => s.steps.some(isLeft)) ?? null
 }
 
-export const launchStages = (plan: Plan, n: 1 | 2) =>
-  plan.stages.filter(s => new RegExp(`запуск\\s*${n}`, 'i').test(s.launch))
+export const launchStages = (plan: Plan, n: number) => plan.stages.filter(s => isLaunch(s, n))
 
 // Горящее этапа: первые пункты с метками горит / ждёт / решение, по одному каждого вида.
 export function hotSteps(st: Stage): Step[] {

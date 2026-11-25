@@ -5,6 +5,7 @@ import {
   currentStage,
   editStep,
   hotSteps,
+  launchView,
   lockedBy,
   parsePlan,
   stagePct,
@@ -354,3 +355,73 @@ test('кнопки нет, когда панель на экране', async ($,
   expect(await ui.find({ type: 'Text', text: 'под модом' })).toBeTruthy()
   await ui.unmount()
 })
+
+const ONE = `---
+проект: Один
+запуск_1: Для всех сразу
+очередь: 1, 2
+очередь_утверждена: 2026-11-25
+---
+## 1 · Код · запуск 1
+- [x] a
+- [ ] b
+
+## 2 · Сайт · запуск 1
+- [ ] c
+`
+const FOUR = `---
+проект: Четыре
+запуск_1: Первый
+запуск_2: Второй
+очередь: 1, 2, 3, 4
+очередь_утверждена: 2026-11-25
+---
+## 1 · А · запуск 1
+- [x] a
+
+## 2 · Б · запуск 2
+- [ ] b
+
+## 3 · В · запуск 3
+- [ ] c
+
+## 4 · Г · запуск 4
+- [ ] d
+`
+
+test('запусков столько, сколько в файле: 1, 2 или 4', () => {
+  expect(parsePlan(ONE).launches).toEqual([{ n: 1, name: 'Для всех сразу' }])
+  expect(parsePlan(SAMPLE).launches.map(l => l.n)).toEqual([1, 2])
+  const four = launchView(parsePlan(FOUR))
+  expect(four.list.map(l => l.n)).toEqual([1, 2, 3, 4])
+  expect(four.cur!.n).toBe(2) // запуск 1 готов — текущий второй
+})
+
+for (const surface of ['terminal', 'desktop'] as const) {
+  test(`один запуск (${surface}): одна полоса и нет кнопок «Запуск N»`, async ($, on) => {
+    const box = newBox(ONE)
+    await start($, on, box, surface)
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ key: 'road-all' })).toBeTruthy()
+    expect(await ui.find({ key: 'road-l' })).toBeFalsy()
+    await ui.unmount()
+    const road = await $.ui.mount({ ...ROAD, surface })
+    expect(await road.find({ key: 'f-1' })).toBeFalsy()
+    expect(await road.find({ type: 'Text', text: /2 · Сайт/ })).toBeTruthy()
+    await road.unmount()
+  })
+
+  test(`четыре запуска (${surface}): кнопка на каждый, фильтр по третьему`, async ($, on) => {
+    const box = newBox(FOUR)
+    await start($, on, box, surface)
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ key: 'road-l' })).toBeTruthy()
+    await ui.unmount()
+    const road = await $.ui.mount({ ...ROAD, surface })
+    for (const n of [1, 2, 3, 4]) expect(await road.find({ key: `f-${n}` })).toBeTruthy()
+    await road.press({ key: 'f-3' })
+    expect(await road.find({ type: 'Text', text: /3 · В/ })).toBeTruthy()
+    expect(await road.find({ type: 'Text', text: /2 · Б/ })).toBeFalsy()
+    await road.unmount()
+  })
+}

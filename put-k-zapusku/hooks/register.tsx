@@ -12,6 +12,7 @@ import {
   hotSteps,
   isLeft,
   launchStages,
+  launchView,
   localDate,
   lockedBy,
   mapSteps,
@@ -365,11 +366,13 @@ export const register: Register = on => {
 
     const plan: Plan = data.plan
     const all = sumSteps(plan.stages)
-    const l1 = sumSteps(launchStages(plan, 1))
-    const l2 = sumSteps(launchStages(plan, 2))
-    const launchIs2 = l1.total > 0 && l1.done === l1.total && l2.total > 0
-    const L = launchIs2 ? l2 : l1
-    const launchName = launchIs2 ? `Запуск 2 · ${plan.launch2}` : `Запуск 1 · ${plan.launch1}`
+    // Сколько запусков в файле, столько и показываем: один — только «Весь продукт» с его именем, два и больше — текущий отдельной полосой.
+    const lv = launchView(plan)
+    const manyLaunches = lv.list.length > 1
+    const curL = lv.cur
+    const L = curL ? sumSteps(launchStages(plan, curL.n)) : all
+    const launchName = curL ? `Запуск ${curL.n}${curL.name ? ` · ${curL.name}` : ''}` : 'Запуск'
+    const allLabel = !manyLaunches && curL?.name ? `Весь продукт · ${curL.name}` : 'Весь продукт'
     const cur = currentStage(plan)
     const todayList = todaySteps(plan, day)
     const todayDone = todayList.filter(x => x.step.isDone).length
@@ -429,14 +432,14 @@ export const register: Register = on => {
       return (
         <Box flexDirection="column" gap="sm" padding="sm">
           <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-            <Text size="caption" dimColor>{launchIs2 ? 'Запуск 2' : 'Запуск 1'}</Text>
+            <Text size="caption" dimColor>{manyLaunches && curL ? `Запуск ${curL.n}` : 'Весь продукт'}</Text>
             <Button key="max" plain dimColor label="Развернуть" onPress={() => update($, isMini, () => false)} />
           </Box>
           <Box flexDirection="row" gap="sm" alignItems="flex-end">
-            <Text size="title" weight="medium" color="suggestion">{L.pct}%</Text>
-            <Text size="footnote" dimColor>осталось {100 - L.pct}%</Text>
+            <Text size="title" weight="medium" color="suggestion">{(manyLaunches ? L : all).pct}%</Text>
+            <Text size="footnote" dimColor>осталось {100 - (manyLaunches ? L : all).pct}%</Text>
           </Box>
-          <Bar pct={L.pct} color={BLUE} />
+          <Bar pct={(manyLaunches ? L : all).pct} color={BLUE} />
           <GoalBlock compact />
           {data.plan.refresh ? (
             <Button key="refresh-mini" label="↻ Обновить роадмап" onPress={() => refresh($, data.plan)} />
@@ -534,8 +537,8 @@ export const register: Register = on => {
           <Button key="min" plain dimColor label="Свернуть" onPress={() => update($, isMini, () => true)} />
         </Box>
 
-        <Progress k="all" label="Весь продукт" pct={all.pct} filter="all" color={GRAY} />
-        <Progress k="l" label={launchName} pct={L.pct} filter={launchIs2 ? '2' : '1'} color={BLUE} />
+        <Progress k="all" label={allLabel} pct={all.pct} filter="all" color={manyLaunches ? GRAY : BLUE} />
+        {manyLaunches && curL ? <Progress k="l" label={launchName} pct={L.pct} filter={String(curL.n)} color={BLUE} /> : null}
         {plan.refresh ? (
           <Box flexDirection="row" justifyContent="flex-end">
             <Button key="refresh" label="↻ Обновить роадмап" onPress={() => refresh($, plan)} />
@@ -639,11 +642,15 @@ export const register: Register = on => {
     const filter = await read($, roadFilter)
     const opened = await read($, openStages)
     const cur = currentStage(plan)
-    const stages = ordered(plan).filter(s =>
-      filter === '1' ? /запуск\s*1/i.test(s.launch) : filter === '2' ? /запуск\s*2/i.test(s.launch) : true,
-    )
+    const rl = launchView(plan)
+    const many = rl.list.length > 1
+    const fNum = Number(filter)
+    const byLaunch = many && Number.isInteger(fNum) && rl.list.some(l => l.n === fNum)
+    const inL = new Set(byLaunch ? launchStages(plan, fNum) : plan.stages)
+    const stages = ordered(plan).filter(s => inL.has(s))
+    const eff = byLaunch ? filter : 'all' // один запуск или старый фильтр — показываем весь продукт
     const sum = sumSteps(stages)
-    const web = filter === '1' ? plan.roadmap1 : plan.roadmap
+    const web = eff === '1' ? plan.roadmap1 : plan.roadmap
     const setFilter = (f: string) => update($, roadFilter, () => f)
 
     return (
@@ -656,16 +663,19 @@ export const register: Register = on => {
           </Box>
         </Box>
         <Box flexDirection="row" gap="sm">
-          <Button key="f-all" plain dimColor={filter !== 'all'} label="Весь продукт" onPress={() => setFilter('all')} />
-          <Button key="f-1" plain dimColor={filter !== '1'} label="Запуск 1" onPress={() => setFilter('1')} />
-          <Button key="f-2" plain dimColor={filter !== '2'} label="Запуск 2" onPress={() => setFilter('2')} />
+          <Button key="f-all" plain dimColor={eff !== 'all'} label="Весь продукт" onPress={() => setFilter('all')} />
+          {many
+            ? rl.list.map(l => (
+                <Button key={`f-${l.n}`} plain dimColor={eff !== String(l.n)} label={`Запуск ${l.n}`} onPress={() => setFilter(String(l.n))} />
+              ))
+            : null}
         </Box>
         <Box flexDirection="column" gap="xs">
           <Box flexDirection="row" gap="sm" alignItems="flex-end">
-            <Text size="title" weight="medium" color={filter === 'all' ? undefined : 'suggestion'}>{sum.pct}%</Text>
+            <Text size="title" weight="medium" color={eff === 'all' ? undefined : 'suggestion'}>{sum.pct}%</Text>
             <Text size="footnote" dimColor>сделано {sum.done} из {sum.total} · осталось {sum.total - sum.done}</Text>
           </Box>
-          <Bar pct={sum.pct} color={filter === 'all' ? GRAY : BLUE} />
+          <Bar pct={sum.pct} color={eff === 'all' ? GRAY : BLUE} />
         </Box>
         <Text size="caption" dimColor>«+ Сегодня» — в план на день для всех сеансов. «В сеанс» — задача этого сеанса.</Text>
         {stages.map(st => {
